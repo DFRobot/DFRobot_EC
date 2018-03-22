@@ -154,7 +154,7 @@ void DFRobot_EC::ecCalibration(byte mode)
       ecCalibrationFinish = 0;
       Serial.println();
       Serial.println(F(">>>Enter Calibration Mode<<<"));
-      Serial.println(F(">>>Please put the probe into the 1.413us/cm or 12.88ms/cm buffer solution<<<"));
+      Serial.println(F(">>>Please put the probe into the 1413us/cm or 12.88ms/cm buffer solution<<<"));
       Serial.println();
       break;
      
