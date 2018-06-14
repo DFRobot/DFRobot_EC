@@ -2,13 +2,13 @@
  * file DFRobot_EC.cpp
  * @ https://github.com/DFRobot/DFRobot_EC
  *
- * Arduino library for Gravity: Analog Electrical Conductivity Sensor / Meter Kit V2 (K=1.0), SKU: DFR0300
+ * Arduino library for Gravity: Analog Electrical Conductivity Sensor / Meter Kit V2 (K=1), SKU: DFR0300
  *
  * Copyright   [DFRobot](http://www.dfrobot.com), 2018
  * Copyright   GNU Lesser General Public License
  *
- * version  V1.0
- * date  2018-03-21
+ * version  V1.01
+ * date  2018-06
  */
 
 
@@ -24,7 +24,7 @@
 #define EEPROM_write(address, p) {int i = 0; byte *pp = (byte*)&(p);for(; i < sizeof(p); i++) EEPROM.write(address+i, pp[i]);}
 #define EEPROM_read(address, p)  {int i = 0; byte *pp = (byte*)&(p);for(; i < sizeof(p); i++) pp[i]=EEPROM.read(address+i);}
 
-#define KVALUEADDR 0x08    //the start address of the K value stored in the EEPROM
+#define KVALUEADDR 0x0A    //the start address of the K value stored in the EEPROM
 #define RES2 820.0
 #define ECREF 200.0
 
@@ -36,7 +36,7 @@ DFRobot_EC::DFRobot_EC()
     this->_kvalueHigh = 1.0;
     this->_cmdReceivedBufferIndex = 0;
     this->_voltage = 0.0;
-    this->_temperature = 25;
+    this->_temperature = 25.0;
 }
 
 DFRobot_EC::~DFRobot_EC()
@@ -66,19 +66,20 @@ void DFRobot_EC::begin()
 float DFRobot_EC::readEC(float voltage, float temperature)
 {
     float value = 0,valueTemp = 0;
-    valueTemp = 1000*voltage/RES2/ECREF*this->_kvalue;
+    this->_rawEC = 1000*voltage/RES2/ECREF;
+    valueTemp = this->_rawEC * this->_kvalue;
     //automatic shift process
-    //First Range:(0,5); Second Range:(5,20)
-    if (valueTemp > 5)
+    //First Range:(0,2); Second Range:(2,20)
+    if (valueTemp > 2.5)
     {
       this->_kvalue = this->_kvalueHigh;
     }
-    else if(valueTemp < 4)
+    else if(valueTemp < 2.0)
     {
       this->_kvalue = this->_kvalueLow;
     }
     
-    value = 1000*voltage/RES2/ECREF*this->_kvalue;  //calculate the EC value after automatic shift
+    value = this->_rawEC * this->_kvalue;  //calculate the EC value after automatic shift
     value = value / (1.0+0.0185*(temperature-25.0));  //temperature compensation
     this->_ecvalue = value;  //store the EC value for Serial CMD calibration
     return value;
@@ -140,7 +141,7 @@ void DFRobot_EC::ecCalibration(byte mode)
     char *receivedBufferPtr;
     static boolean ecCalibrationFinish = 0;
     static boolean enterCalibrationFlag = 0;
-    static float rawECsolution;
+    static float compECsolution;
     float KValueTemp;
     switch(mode)
     {
@@ -161,25 +162,24 @@ void DFRobot_EC::ecCalibration(byte mode)
       case 2:
       if(enterCalibrationFlag)
       {
-          if((this->_ecvalue>0.6)&&(this->_ecvalue<2.2))    //recognize 1.413us/cm buffer solution
-            rawECsolution = 1.413*(1.0+0.0185*(this->_temperature-25.0));  //temperature compensation
-          else if((this->_ecvalue>7)&&(this->_ecvalue<18))  //recognize 12.88ms/cm buffer solution
-            rawECsolution = 12.88*(1.0+0.0185*(this->_temperature-25.0));  //temperature compensation
+          if((this->_rawEC>0.9)&&(this->_rawEC<1.9))    //recognize 1.413us/cm buffer solution
+            compECsolution = 1.413*(1.0+0.0185*(this->_temperature-25.0));  //temperature compensation
+          else if((this->_rawEC>9)&&(this->_rawEC<16.8))  //recognize 12.88ms/cm buffer solution
+            compECsolution = 12.88*(1.0+0.0185*(this->_temperature-25.0));  //temperature compensation
           else{
             Serial.print(F(">>>Buffer Solution Error<<<   "));
             ecCalibrationFinish = 0;
           }
-            
-          KValueTemp = RES2*ECREF*rawECsolution/1000.0/this->_voltage;  //calibrate the k value
+          KValueTemp = RES2*ECREF*compECsolution/1000.0/this->_voltage;  //calibrate the k value
           if((KValueTemp>0.5) && (KValueTemp<1.5))
           {
               Serial.println();
               Serial.print(F(">>>Successful,K:"));
               Serial.print(KValueTemp);
               Serial.println(F(", Send EXIT to Save and Exit<<<"));
-              if((rawECsolution>0.6)&&(rawECsolution<2.2))
+              if((this->_rawEC>0.9)&&(this->_rawEC<1.9))
                 this->_kvalueLow =  KValueTemp;
-              else if((rawECsolution>7)&&(rawECsolution<18))
+              else if((this->_rawEC>9)&&(this->_rawEC<16.8))
                 this->_kvalueHigh =  KValueTemp;
               ecCalibrationFinish = 1;
           }
@@ -198,12 +198,14 @@ void DFRobot_EC::ecCalibration(byte mode)
             Serial.println();
             if(ecCalibrationFinish)
             {   
-              if((rawECsolution>0.6)&&(rawECsolution<2.2))
+              if((this->_rawEC>0.9)&&(this->_rawEC<1.9))
               {
                  EEPROM_write(KVALUEADDR, this->_kvalueLow);
               }
-              else if((rawECsolution>7)&&(rawECsolution<18))               
-                 EEPROM_write(KVALUEADDR+4, this->_kvalueHigh);      
+              else if((this->_rawEC>9)&&(this->_rawEC<16.8))
+              {              
+                 EEPROM_write(KVALUEADDR+4, this->_kvalueHigh);
+              }
               Serial.print(F(">>>Calibration Successful"));
             }
             else Serial.print(F(">>>Calibration Failed"));       

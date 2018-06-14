@@ -1,13 +1,13 @@
 /*
  * file DFRobot_EC.h * @ https://github.com/DFRobot/DFRobot_EC
  *
- * Arduino library for Gravity: Analog Electrical Conductivity Sensor / Meter Kit V2 (K=1.0), SKU: DFR0300
+ * Arduino library for Gravity: Analog Electrical Conductivity Sensor / Meter Kit V2 (K=1), SKU: DFR0300
  *
  * Copyright   [DFRobot](http://www.dfrobot.com), 2018
  * Copyright   GNU Lesser General Public License
  *
- * version  V1.0
- * date  2018-03-21
+ * version  V1.01
+ * date  2018-06
  */
 
 #ifndef _DFROBOT_EC_H_
@@ -37,6 +37,7 @@ private:
     float _kvalueHigh;
     float _voltage;
     float _temperature;
+    float _rawEC;
 
     char _cmdReceivedBuffer[ReceivedBufferLength];  //store the Serial CMD
     byte _cmdReceivedBufferIndex;
