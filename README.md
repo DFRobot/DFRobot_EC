@@ -7,7 +7,6 @@ This is the sample code for Gravity: Analog Electrical Conductivity Sensor / Met
 <snippet>
 <content>
 
-```
 ## Methods
 
 ```C++
