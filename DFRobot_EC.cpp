@@ -9,6 +9,10 @@
  *
  * version  V1.01
  * date  2018-06
+ * 
+ * version  V1.1
+ * date  2020-04
+ * Changes the memory addressing to allow multiple EC sensors
  */
 
 
@@ -21,60 +25,127 @@
 #include "DFRobot_EC.h"
 #include <EEPROM.h>
 
-#define EEPROM_write(address, p) {int i = 0; byte *pp = (byte*)&(p);for(; i < sizeof(p); i++) EEPROM.write(address+i, pp[i]);}
-#define EEPROM_read(address, p)  {int i = 0; byte *pp = (byte*)&(p);for(; i < sizeof(p); i++) pp[i]=EEPROM.read(address+i);}
+#define EEPROM_write(address, value) {int i = 0; byte *pp = (byte*)&(value);for(; i < sizeof(value); i++) EEPROM.write(address+i, pp[i]);}
+#define EEPROM_read(address, value)  {int i = 0; byte *pp = (byte*)&(value);for(; i < sizeof(value); i++) pp[i]=EEPROM.read(address+i);}
 
-#define KVALUEADDR 0x0A    //the start address of the K value stored in the EEPROM
+// The start address of the K value stored in the EEPROM. Start at 96 after the 12 values for the pH sensors
+#define KVALUEADDR 96    
+
 #define RES2 820.0
 #define ECREF 200.0
 
+// Default construtor to ensure backwards compatibility
 DFRobot_EC::DFRobot_EC()
 {
-    this->_ecvalue                = 0.0;
-    this->_kvalue                 = 1.0;
+    // As no pin was provided we will use the data for pin A0
+    this->_pin            = A0;
+
+    // Set the address
+    // For each EC sensor we need to store 2 floats (EC 1.413us/cm and EC 12.88ms/cm)
+    // This will be 8byte per sensor and the largest arduino has 12 analogue ports
+    // So let's start at address 0 and go up by 8b for each analogue port. This will use upto 96b 
+    // For the EC library we will start after PH addresses
+    this->_address        = KVALUEADDR + (sizeof(float) * 2 * EPinToAddressMap[this->_pin]);
+
+    // Buffer solution EC 1.413us/cm at 25C
     this->_kvalueLow              = 1.0;
+
+    // Buffer solution EC 12.88ms/cm at 25C
     this->_kvalueHigh             = 1.0;
+
+    // Initialise the rest of the values with an initial starting value
     this->_cmdReceivedBufferIndex = 0;
     this->_voltage                = 0.0;
     this->_temperature            = 25.0;
+    this->_ecvalue                = 0.0;
+    this->_kvalue                 = 1.0;
 } 
 
+// Updated construtor to allow multiple EC sensors
+DFRobot_EC::DFRobot_EC(int ecPin);
+{
+    // Set the pin to the supplied value
+    this->_pin                    = ecPin;
+
+    // Set the address
+    // For each EC sensor we need to store 2 floats (EC 1.413us/cm and EC 12.88ms/cm)
+    // This will be 8byte per sensor and the largest arduino has 12 analogue ports
+    // So let's start at address 0 and go up by 8b for each analogue port. This will use upto 96b 
+    // For the EC library we will start after PH addresses
+    this->_address                = KVALUEADDR + (sizeof(float) * 2 * EPinToAddressMap[this->_pin]);
+
+    // Buffer solution EC 1.413us/cm at 25C
+    this->_kvalueLow              = 1.0;
+
+    // Buffer solution EC 12.88ms/cm at 25C
+    this->_kvalueHigh             = 1.0;
+
+    // Initialise the rest of the values with an initial starting value
+    this->_cmdReceivedBufferIndex = 0;
+    this->_voltage                = 0.0;
+    this->_temperature            = 25.0;
+    this->_ecvalue                = 0.0;
+    this->_kvalue                 = 1.0;
+} 
+
+// Default destructor
 DFRobot_EC::~DFRobot_EC()
 {
-
 }
 
+// Initialiser
 void DFRobot_EC::begin()
 {
-    EEPROM_read(KVALUEADDR, this->_kvalueLow);        //read the calibrated K value from EEPROM
-    if(EEPROM.read(KVALUEADDR)==0xFF && EEPROM.read(KVALUEADDR+1)==0xFF && EEPROM.read(KVALUEADDR+2)==0xFF && EEPROM.read(KVALUEADDR+3)==0xFF){
-        this->_kvalueLow = 1.0;                       // For new EEPROM, write default value( K = 1.0) to EEPROM
-        EEPROM_write(KVALUEADDR, this->_kvalueLow);
+    // Read the calibrated K value from EEPROM
+    EEPROM_read(this->_address, this->_kvalueLow); 
+    
+    // If the values are all 255 then  write a default value in       
+    if(EEPROM.read(this->_address)==0xFF && EEPROM.read(this->_address+1)==0xFF && EEPROM.read(this->_address+2)==0xFF && EEPROM.read(this->_address+3)==0xFF){
+        // For new EEPROM, write default value( K = 1.0) to EEPROM
+        this->_kvalueLow = 1.0;                       
+        EEPROM_write(this->_address, this->_kvalueLow);
     }
-    EEPROM_read(KVALUEADDR+4, this->_kvalueHigh);     //read the calibrated K value from EEPRM
-    if(EEPROM.read(KVALUEADDR+4)==0xFF && EEPROM.read(KVALUEADDR+5)==0xFF && EEPROM.read(KVALUEADDR+6)==0xFF && EEPROM.read(KVALUEADDR+7)==0xFF){
-        this->_kvalueHigh = 1.0;                      // For new EEPROM, write default value( K = 1.0) to EEPROM
-        EEPROM_write(KVALUEADDR+4, this->_kvalueHigh);
+
+    // Read the calibrated K value from EEPRM
+    EEPROM_read(this->_address+4, this->_kvalueHigh);     
+    
+    // If the values are all 255 then  write a default value in
+    if(EEPROM.read(this->_address+4)==0xFF && EEPROM.read(this->_address+5)==0xFF && EEPROM.read(this->_address+6)==0xFF && EEPROM.read(this->_address+7)==0xFF){
+        // For new EEPROM, write default value( K = 1.0) to EEPROM
+        this->_kvalueHigh = 1.0;                      
+        EEPROM_write(this->_address+4, this->_kvalueHigh);
     }
-    this->_kvalue =  this->_kvalueLow;                // set default K value: K = kvalueLow
+
+    // Set default K value: K = kvalueLow
+    this->_kvalue =  this->_kvalueLow;                
 }
 
+// Function to read the EC value
 float DFRobot_EC::readEC(float voltage, float temperature)
 {
-    float value = 0,valueTemp = 0;
-    this->_rawEC = 1000*voltage/RES2/ECREF;
+    float value = 0;
+    float valueTemp = 0;
+
+    this->_rawEC = 1000 * voltage / RES2 / ECREF;
     valueTemp = this->_rawEC * this->_kvalue;
-    //automatic shift process
-    //First Range:(0,2); Second Range:(2,20)
+
+    // Automatic shift process
+    // First Range:(0,2); Second Range:(2,20)
     if(valueTemp > 2.5){
         this->_kvalue = this->_kvalueHigh;
     }else if(valueTemp < 2.0){
         this->_kvalue = this->_kvalueLow;
     }
 
-    value = this->_rawEC * this->_kvalue;             //calculate the EC value after automatic shift
-    value = value / (1.0+0.0185*(temperature-25.0));  //temperature compensation
-    this->_ecvalue = value;                           //store the EC value for Serial CMD calibration
+    // Calculate the EC value after automatic shift
+    value = this->_rawEC * this->_kvalue;
+
+    // Temperature compensation
+    value = value / (1.0+0.0185*(temperature-25.0));  
+
+    // Store the EC value for Serial CMD calibration
+    this->_ecvalue = value;                           
+    
     return value;
 }
 
@@ -83,7 +154,9 @@ void DFRobot_EC::calibration(float voltage, float temperature,char* cmd)
     this->_voltage = voltage;
     this->_temperature = temperature;
     strupr(cmd);
-    ecCalibration(cmdParse(cmd));                     //if received Serial CMD from the serial monitor, enter into the calibration mode
+
+    // If received Serial CMD from the serial monitor, enter into the calibration mode
+    ecCalibration(cmdParse(cmd));                     
 }
 
 void DFRobot_EC::calibration(float voltage, float temperature)
@@ -91,9 +164,10 @@ void DFRobot_EC::calibration(float voltage, float temperature)
     this->_voltage = voltage;
     this->_temperature = temperature;
     
+    // If received Serial CMD from the serial monitor, enter into the calibration mode
     if(cmdSerialDataAvailable() > 0)
     {
-        ecCalibration(cmdParse());  // if received Serial CMD from the serial monitor, enter into the calibration mode
+        ecCalibration(cmdParse());  
     }
 }
 
@@ -203,9 +277,9 @@ void DFRobot_EC::ecCalibration(byte mode)
                 Serial.println();
                 if(ecCalibrationFinish){   
                     if((this->_rawEC>0.9)&&(this->_rawEC<1.9)){
-                        EEPROM_write(KVALUEADDR, this->_kvalueLow);
+                        EEPROM_write(this->_address, this->_kvalueLow);
                     }else if((this->_rawEC>9)&&(this->_rawEC<16.8)){
-                        EEPROM_write(KVALUEADDR+4, this->_kvalueHigh);
+                        EEPROM_write(this->_address+4, this->_kvalueHigh);
                     }
                     Serial.print(F(">>>Calibration Successful"));
                 }else{
