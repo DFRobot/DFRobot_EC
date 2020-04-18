@@ -23,26 +23,15 @@
 #include "WProgram.h"
 #endif
 
-#include <map>
-
-// Map from pin to a address number to be multiplied by the number of bytes offset
-static std::map<uint8_t, uint8_t> EPinToAddressMap{
-	{A0, 0}, 
-	{A1, 1}, 
-	{A2, 2}, 
-	{A3, 3}, 
-	{A4, 4}, 
-	{A5, 5}, 
-	{A6, 6}, 
-	{A7, 7}, 
-	{A8, 8}, 
-	{A9, 9}, 
-	{A10, 10}, 
-	{A11, 11}, 
-    };
-
 // Length of the Serial CMD buffer
 #define ReceivedBufferLength 10  
+
+/**
+ * Maps the pin (A0,A1..A11) to a number 0-11 so the address can be determined
+ * @param ecPin the pin the EC sensor is attached to
+ * @return the address multiplier
+ */
+uint8_t mapECPin(uint8_t ecPin);
 
 class DFRobot_EC
 {
