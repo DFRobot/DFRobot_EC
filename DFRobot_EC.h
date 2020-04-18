@@ -8,6 +8,10 @@
  *
  * version  V1.01
  * date  2018-06
+ * 
+ * version  V1.1
+ * date  2020-04
+ * Changes the memory addressing to allow multiple EC sensors
  */
 
 #ifndef _DFROBOT_EC_H_
@@ -19,19 +23,32 @@
 #include "WProgram.h"
 #endif
 
-#define ReceivedBufferLength 10  //length of the Serial CMD buffer
+// Length of the Serial CMD buffer
+#define ReceivedBufferLength 10  
 
 class DFRobot_EC
 {
 public:
+    // Construtors
     DFRobot_EC();
-    ~DFRobot_EC();
-    void    calibration(float voltage, float temperature,char* cmd);        //calibration by Serial CMD
-    void    calibration(float voltage, float temperature);                  //calibration by Serial CMD
-    float   readEC(float voltage, float temperature);                       // voltage to EC value, with temperature compensation
-    void    begin();                                                        //initialization
+    DFRobot_EC(int ecPin);
 
+    // Destructors
+    ~DFRobot_EC();
+    
+    // Initialization
+    void begin();
+    
+    // Calibration by Serial CMD
+    void calibration(float voltage, float temperature, char* cmd);
+    void calibration(float voltage, float temperature);
+
+    // Voltage to EC value with temperature compensation
+    float readEC(float voltage, float temperature);
+    
 private:
+    int    _pin;
+    int    _address;
     float  _ecvalue;
     float  _kvalue;
     float  _kvalueLow;
@@ -40,12 +57,16 @@ private:
     float  _temperature;
     float  _rawEC;
 
-    char   _cmdReceivedBuffer[ReceivedBufferLength];  //store the Serial CMD
+    // Store the Serial CMD
+    char   _cmdReceivedBuffer[ReceivedBufferLength];  
     byte   _cmdReceivedBufferIndex;
 
 private:
+    // Calibration process, wirte key parameters to EEPROM
+    void    ecCalibration(byte mode); 
+
     boolean cmdSerialDataAvailable();
-    void    ecCalibration(byte mode); // calibration process, wirte key parameters to EEPROM
+
     byte    cmdParse(const char* cmd);
     byte    cmdParse();
 };
