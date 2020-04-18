@@ -34,6 +34,51 @@
 #define RES2 820.0
 #define ECREF 200.0
 
+// Maps the pin (A0,A1..A11) to a number 0-11 so the address can be determined
+uint8_t mapECPin(uint8_t ecPin)
+{
+    int addressMap = 0;
+    if (ecPin == A0){
+        Serial.print(" pin A0 ");
+        addressMap = 0;
+    } else if (ecPin == A1){
+        Serial.print(" pin A1 ");
+        addressMap = 1;
+    } else if (ecPin == A2){
+        Serial.print(" pin A2 ");
+        addressMap = 2;
+    } else if (ecPin == A3){
+        Serial.print(" pin A3 ");
+        addressMap = 3;
+    } else if (ecPin == A4){
+        Serial.print(" pin A4 ");
+        addressMap = 4;
+    } else if (ecPin == A5){
+        Serial.print(" pin A5 ");
+        addressMap = 5;
+    } else if (ecPin == A6){
+        Serial.print(" pin A6 ");
+        addressMap = 6;
+    } else if (ecPin == A7){
+        Serial.print(" pin A7 ");
+        addressMap = 7;
+    } else if (ecPin == A8){
+        Serial.print(" pin A8 ");
+        addressMap = 8;
+    } else if (ecPin == A9){
+        Serial.print(" pin A9 ");
+        addressMap = 9;
+    } else if (ecPin == A10){
+        Serial.print(" pin A10 ");
+        addressMap = 10;
+    } else if (ecPin == A11){
+        Serial.print(" pin A11 ");
+        addressMap = 11;
+    }
+
+    return addressMap;
+}
+
 // Default construtor to ensure backwards compatibility
 DFRobot_EC::DFRobot_EC()
 {
@@ -45,7 +90,7 @@ DFRobot_EC::DFRobot_EC()
     // This will be 8byte per sensor and the largest arduino has 12 analogue ports
     // So let's start at address 0 and go up by 8b for each analogue port. This will use upto 96b 
     // For the EC library we will start after PH addresses
-    this->_address        = KVALUEADDR + (sizeof(float) * 2 * EPinToAddressMap[this->_pin]);
+    this->_address        = KVALUEADDR + (sizeof(float) * 2 * mapECPin(this->_pin));
 
     // Buffer solution EC 1.413us/cm at 25C
     this->_kvalueLow              = 1.0;
@@ -62,7 +107,7 @@ DFRobot_EC::DFRobot_EC()
 } 
 
 // Updated construtor to allow multiple EC sensors
-DFRobot_EC::DFRobot_EC(int ecPin);
+DFRobot_EC::DFRobot_EC(int ecPin)
 {
     // Set the pin to the supplied value
     this->_pin                    = ecPin;
@@ -72,7 +117,7 @@ DFRobot_EC::DFRobot_EC(int ecPin);
     // This will be 8byte per sensor and the largest arduino has 12 analogue ports
     // So let's start at address 0 and go up by 8b for each analogue port. This will use upto 96b 
     // For the EC library we will start after PH addresses
-    this->_address                = KVALUEADDR + (sizeof(float) * 2 * EPinToAddressMap[this->_pin]);
+    this->_address                = KVALUEADDR + (sizeof(float) * 2 * mapECPin(this->_pin));
 
     // Buffer solution EC 1.413us/cm at 25C
     this->_kvalueLow              = 1.0;
@@ -96,8 +141,19 @@ DFRobot_EC::~DFRobot_EC()
 // Initialiser
 void DFRobot_EC::begin()
 {
+    Serial.print("_pin:");
+    Serial.println(this->_pin);
+
+    Serial.print("mapped:");
+    Serial.println(mapECPin(this->_pin));
+
+    Serial.print("_address:");
+    Serial.println(this->_address);
+
     // Read the calibrated K value from EEPROM
     EEPROM_read(this->_address, this->_kvalueLow); 
+    Serial.print("_kvalueLow:");
+    Serial.println(this->_kvalueLow);
     
     // If the values are all 255 then  write a default value in       
     if(EEPROM.read(this->_address)==0xFF && EEPROM.read(this->_address+1)==0xFF && EEPROM.read(this->_address+2)==0xFF && EEPROM.read(this->_address+3)==0xFF){
@@ -107,7 +163,9 @@ void DFRobot_EC::begin()
     }
 
     // Read the calibrated K value from EEPRM
-    EEPROM_read(this->_address+4, this->_kvalueHigh);     
+    EEPROM_read(this->_address+4, this->_kvalueHigh); 
+    Serial.print("_kvalueHigh:");
+    Serial.println(this->_kvalueHigh);    
     
     // If the values are all 255 then  write a default value in
     if(EEPROM.read(this->_address+4)==0xFF && EEPROM.read(this->_address+5)==0xFF && EEPROM.read(this->_address+6)==0xFF && EEPROM.read(this->_address+7)==0xFF){
