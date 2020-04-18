@@ -13,6 +13,12 @@ This is the sample code for Gravity: Analog Electrical Conductivity Sensor / Met
 ## Methods
 
 ```C++
+/*
+ * @brief The new optional constructor to allow multiple EC sensors
+ *
+ * @param ecPin: The pin of the EC sensor i.e. A0
+ */
+DFRobot_EC(int ecPin);
 
 /*
  * @brief Init The Analog Electrical Conductivity Sensor
@@ -54,6 +60,9 @@ Meag2560 |      √       |             |            |
 
 - date 2018-11-6
 - version V1.0
+- date 2020-04-18
+- version V1.1
+    - Update to allow multiple EC sensors each with their own calibration
 
 ## Credits
 
