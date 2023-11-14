@@ -94,3 +94,12 @@ float readTemperature()
 {
   //add your code here to get the temperature from your temperature sensor
 }
+
+void toUpperCase(char* str) 
+{
+    if (str == NULL) return;
+    for (int i = 0; str[i] != '\0'; i++) 
+	{
+        str[i] = toupper(str[i]);
+    }
+}
